@@ -1,1 +1,1345 @@
 
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Icon Sheet Generator</title>
+<style>
+  :root{
+    --ink:#0f2540; --ink-soft:#5b7186; --paper:#f5f2ea;
+    --line:#e2ddd0; --teal:#1d9e91; --teal-dark:#136e64;
+    --panel:#ffffff; --canvas-bg:#e9e5da;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--canvas-bg);color:var(--ink);}
+  .app{display:grid;grid-template-columns:380px 1fr;min-height:100vh;transition:grid-template-columns .22s ease;}
+  .app.rail-hidden{grid-template-columns:0px 1fr;}
+  .rail{background:var(--panel);border-right:1px solid var(--line);padding:24px 22px 60px;overflow-y:auto;overflow-x:hidden;max-height:100vh;transition:padding .22s ease;}
+  .app.rail-hidden .rail{padding:0;border-right:none;}
+  .rail-toggle{position:fixed;top:16px;left:380px;z-index:30;width:26px;height:46px;border:1px solid var(--line);border-left:none;border-radius:0 10px 10px 0;background:#fff;box-shadow:2px 3px 12px rgba(15,37,64,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink-soft);transition:left .22s ease;}
+  .rail-toggle:hover{color:var(--teal-dark);}
+  .rail-toggle.collapsed{left:0;}
+  .rail h1{font-size:19px;margin:0 0 2px;}
+  .rail .sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 20px;}
+  .step{font-size:11.5px;font-weight:700;color:var(--teal-dark);margin:22px 0 10px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.3px;}
+  .step .n{width:18px;height:18px;border-radius:50%;background:var(--teal-dark);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;flex:none;}
+  .step:first-of-type{margin-top:0;}
+
+  .opt-row{display:flex;gap:8px;}
+  .opt-btn{flex:1;padding:10px 6px;border:2px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:700;text-align:center;color:var(--ink-soft);}
+  .opt-btn.active{border-color:var(--teal);color:var(--teal-dark);background:#f0faf8;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  .field input[type=text],.field input[type=number]{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit;}
+  .field-row{display:flex;gap:8px;}
+  .field-row .field{flex:1;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:4px;}
+  .toggle-row span{font-size:13px;font-weight:600;}
+  .switch{position:relative;width:40px;height:22px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:#ccc;border-radius:22px;cursor:pointer;transition:.2s;}
+  .slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+  input:checked + .slider{background:var(--teal);}
+  input:checked + .slider:before{transform:translateX(18px);}
+
+  .tpl-grid{display:flex;flex-direction:column;gap:8px;}
+  .tpl-card{border:2px solid var(--line);border-radius:9px;padding:9px;cursor:pointer;display:flex;gap:9px;align-items:center;background:#fff;}
+  .tpl-card.active{border-color:var(--teal);background:#f0faf8;}
+  .tpl-card .swatch{width:44px;height:44px;border-radius:6px;flex:none;}
+  .tpl-card strong{display:block;font-size:12.5px;}
+
+  .color-row{display:flex;gap:8px;}
+  .color-item{flex:1;text-align:center;}
+  .color-item label{font-size:10.5px;color:var(--ink-soft);display:block;margin-bottom:4px;}
+  .color-item input[type=color]{width:100%;height:32px;border:1px solid var(--line);border-radius:6px;padding:2px;cursor:pointer;}
+  .color-item input.hex-input{width:100%;margin-top:5px;padding:5px 4px;border:1px solid var(--line);border-radius:6px;font-size:11px;text-align:center;font-family:'Segoe UI',monospace;text-transform:lowercase;}
+  .color-item input.hex-input:focus{border-color:var(--teal);outline:none;}
+  .color-item input.hex-input.invalid{border-color:#c0392b;background:#fdecea;}
+
+  .drop{border:2px dashed var(--line);border-radius:9px;padding:16px 10px;text-align:center;cursor:pointer;background:#fafaf7;font-size:12px;color:var(--ink-soft);}
+  .drop:hover{border-color:var(--teal);}
+  .drop strong{color:var(--ink);display:block;font-size:12.5px;margin-bottom:2px;}
+  input[type=file]{display:none;}
+  .count-pill{display:inline-block;margin-top:8px;font-size:11.5px;background:#eef6f4;color:var(--teal-dark);padding:3px 9px;border-radius:20px;}
+  .warn-pill{display:inline-block;margin-top:6px;font-size:11px;background:#fdecea;color:#9c3b2e;padding:3px 9px;border-radius:20px;}
+
+  .icon-list{margin-top:10px;display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;}
+  .icon-row{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;background:#fff;}
+  .icon-row .thumb{width:22px;height:22px;flex:none;}
+  .icon-row .thumb img{width:100%;height:100%;object-fit:contain;}
+  .icon-row span.lbl{flex:1;font-size:11.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .icon-del{flex:none;width:22px;height:22px;border:none;border-radius:6px;background:#fdecea;color:#c0392b;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .icon-del:hover{background:#f6c6c0;}
+
+  .logo-grid{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;}
+  .logo-chip{width:52px;height:44px;border-radius:8px;border:2px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;cursor:pointer;}
+  .logo-chip.active{border-width:3px;box-shadow:0 0 0 2px rgba(29,158,145,.15);}
+
+  .sizer-field{margin-bottom:14px;}
+  .sizer-field label{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  .sizer-field label b{color:var(--teal-dark);font-size:12px;}
+  .sizer-row{display:flex;align-items:center;gap:8px;}
+  .sizer-row input[type=range]{flex:1;accent-color:var(--teal);}
+  .sizer-row input[type=number]{width:56px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;text-align:center;font-family:inherit;}
+
+  .export-btns{display:flex;flex-direction:column;gap:7px;margin-top:6px;}
+  .btn{padding:10px 12px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-primary{background:var(--teal-dark);color:#fff;}
+  .btn-outline{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .stage{padding:0;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;touch-action:none;}
+  .stage.space-grab{cursor:grab;}
+  .stage.space-grab *{cursor:grab;}
+  .stage.space-grabbing,.stage.space-grabbing *{cursor:grabbing !important;user-select:none;}
+  .zoom-bar{position:fixed;top:18px;right:26px;display:flex;align-items:center;gap:2px;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 4px 14px rgba(15,37,64,.12);padding:4px;z-index:50;}
+  .zoom-bar button{width:30px;height:30px;border:none;border-radius:6px;background:#f2efe6;color:var(--ink);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .zoom-bar button:hover{background:#e5e1d2;}
+  .zoom-bar .zlevel{width:48px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-soft);cursor:pointer;user-select:none;}
+  .canvas-wrap{background:#fff;box-shadow:0 8px 30px rgba(15,37,64,.15);flex:none;transform-origin:0 0;will-change:transform;}
+  .canvas-wrap.has-content{position:absolute;left:0;top:0;}
+  .empty-hint{color:var(--ink-soft);font-size:13.5px;text-align:center;padding:60px 20px;max-width:320px;}
+  .lbl-edit{font-family:inherit;text-align:center;outline:none;overflow:hidden;line-height:1.15;}
+  .lbl-edit:focus{background:rgba(29,158,145,.08);}
+  ::-webkit-scrollbar{width:7px;} ::-webkit-scrollbar-thumb{background:#cfc9b8;border-radius:4px;}
+</style>
+</head>
+<body>
+<button class="rail-toggle" id="railToggle" title="Panel show/hide">‹</button>
+<div class="app" id="appRoot">
+<div class="rail">
+  <h1>Icon Sheet Generator</h1>
+  <p class="sub">Fixed artboard 4700×2400px — pack size অনুযায়ী auto layout</p>
+
+  <div class="step"><span class="n">1</span>Pack Size</div>
+  <div class="opt-row" id="packSizeRow">
+    <div class="opt-btn active" data-n="30">30</div>
+    <div class="opt-btn" data-n="50">50</div>
+    <div class="opt-btn" data-n="100">100</div>
+    <div class="opt-btn" data-n="200">200</div>
+  </div>
+
+  <div class="step"><span class="n">2</span>Row × Column (editable)</div>
+  <div class="field-row">
+    <div class="field"><label>Row</label><input type="number" id="rowsInput" value="5" min="1"></div>
+    <div class="field"><label>Column</label><input type="number" id="colsInput" value="6" min="1"></div>
+  </div>
+
+  <div class="step"><span class="n">3</span>Icon Upload (SVG)</div>
+  <div class="drop" id="dropZone"><strong>SVG ফাইল ড্র্যাগ/ক্লিক করুন</strong>একটা SVG-তে একাধিক grouped icon থাকলেও চলবে — auto আলাদা হয়ে যাবে</div>
+  <input type="file" id="fileInput" accept=".svg,image/svg+xml" multiple>
+  <div class="count-pill" id="countPill">0 icon পাওয়া গেছে</div>
+  <div class="icon-list" id="iconList"></div>
+
+  <div class="drop" id="namesDropZone" style="margin-top:10px;"><strong>Icon নামের তালিকা Import (.txt)</strong>প্রতি লাইনে একটা icon-এর নাম — SVG upload করার serial অনুযায়ী বসে যাবে</div>
+  <input type="file" id="namesFileInput" accept=".txt,text/plain">
+  <div class="count-pill" id="namesPill" style="display:none;"></div>
+
+  <div class="step"><span class="n">4</span>Layout &amp; Sizing</div>
+  <div class="sizer-field">
+    <label>Margin (grid outer)<b id="marginVal">20px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="marginSlider" min="0" max="200" step="2" value="20">
+      <input type="number" id="marginNum" min="0" max="400" value="20">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Padding (per cell)<b id="paddingVal">8%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="paddingSlider" min="0" max="40" step="1" value="8">
+      <input type="number" id="paddingNum" min="0" max="45" value="8">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Icon Size<b id="iconSizeVal">88%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="iconSizeSlider" min="30" max="100" step="1" value="88">
+      <input type="number" id="iconSizeNum" min="10" max="100" value="88">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Icon Font Size<b id="fontSizeVal">32px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="fontSizeSlider" min="10" max="90" step="1" value="32">
+      <input type="number" id="fontSizeNum" min="8" max="150" value="32">
+    </div>
+  </div>
+
+  <div class="step"><span class="n">5</span>Text Label</div>
+  <div class="toggle-row">
+    <span>Text ON / OFF</span>
+    <label class="switch"><input type="checkbox" id="textToggle" checked><span class="slider"></span></label>
+  </div>
+  <p style="font-size:11px;color:var(--ink-soft);margin:4px 2px 0;">ON করলে প্রতি icon-এর নিচে খালি text box থাকবে — নিজে টাইপ করবেন। OFF করলে icon বড় হয়ে জায়গা ভাগ হবে।</p>
+
+  <div class="step"><span class="n">6</span>Template Style</div>
+  <div class="tpl-grid" id="tplGrid"></div>
+
+  <div class="step"><span class="n">7</span>Panel Text</div>
+  <div class="field"><label>Pack Title</label><input type="text" id="packTitle" value="MEDICAL EQUIPMENT"></div>
+  <div class="field-row">
+    <div class="field"><label>Badge</label><input type="text" id="badgeTop" value="ICONS PACK"></div>
+    <div class="field"><label>Footer</label><input type="text" id="footerNote" value="EDITABLE STROKE"></div>
+  </div>
+  <div class="sizer-field">
+    <label>Title Font Size<b id="pTitleSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pTitleSizeSlider" min="40" max="200" step="2" value="100">
+      <input type="number" id="pTitleSizeNum" min="40" max="300" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Title Position X<b id="pTitlePosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pTitlePosXSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pTitlePosXNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Title Position Y<b id="pTitlePosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pTitlePosYSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pTitlePosYNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Circle Size<b id="pCircleSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pCircleSizeSlider" min="40" max="200" step="2" value="100">
+      <input type="number" id="pCircleSizeNum" min="40" max="300" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Circle Position X<b id="pCirclePosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pCirclePosXSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pCirclePosXNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Circle Position Y<b id="pCirclePosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pCirclePosYSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pCirclePosYNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Tag Font Size<b id="pBadgeSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pBadgeSizeSlider" min="40" max="200" step="2" value="100">
+      <input type="number" id="pBadgeSizeNum" min="40" max="300" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Tag Position X<b id="pBadgePosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pBadgePosXSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pBadgePosXNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Tag Position Y<b id="pBadgePosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pBadgePosYSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pBadgePosYNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Footer Font Size<b id="pFooterSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pFooterSizeSlider" min="40" max="200" step="2" value="100">
+      <input type="number" id="pFooterSizeNum" min="40" max="300" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Footer Position X<b id="pFooterPosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pFooterPosXSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pFooterPosXNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Footer Position Y<b id="pFooterPosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pFooterPosYSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pFooterPosYNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+
+  <div class="step"><span class="n">8</span>Demo Icon (1st icon)</div>
+  <p style="font-size:11px;color:var(--ink-soft);margin:0 0 10px;">Sidebar/cream template-এ যেই বড় icon-টা preview হিসেবে দেখা যায় (আপনার প্রথম upload করা icon), সেটার size ও position এখান থেকে নিয়ন্ত্রণ করুন।</p>
+  <div class="sizer-field">
+    <label>Demo Icon Size<b id="pDemoSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pDemoSizeSlider" min="20" max="220" step="2" value="100">
+      <input type="number" id="pDemoSizeNum" min="10" max="400" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Demo Icon Position X<b id="pDemoPosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pDemoPosXSlider" min="-500" max="500" step="5" value="0">
+      <input type="number" id="pDemoPosXNum" min="-1500" max="1500" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Demo Icon Position Y<b id="pDemoPosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pDemoPosYSlider" min="-700" max="500" step="5" value="0">
+      <input type="number" id="pDemoPosYNum" min="-1500" max="1500" value="0">
+    </div>
+  </div>
+
+  <div class="step"><span class="n">9</span>Format Badge (logo)</div>
+  <div class="toggle-row">
+    <span>Badge ON / OFF</span>
+    <label class="switch"><input type="checkbox" id="logoToggle" checked><span class="slider"></span></label>
+  </div>
+  <div class="logo-grid" id="logoGrid"></div>
+  <div class="field"><label>Badge Text (editable, up to 10 chars)</label><input type="text" id="logoLabel" value="Ai" maxlength="10"></div>
+  <div class="sizer-field">
+    <label>Badge Text Font Size<b id="pLogoSizeVal">100%</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pLogoSizeSlider" min="40" max="200" step="2" value="100">
+      <input type="number" id="pLogoSizeNum" min="40" max="300" value="100">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Text Position X<b id="pLogoPosXVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pLogoPosXSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pLogoPosXNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+  <div class="sizer-field">
+    <label>Badge Text Position Y<b id="pLogoPosYVal">0px</b></label>
+    <div class="sizer-row">
+      <input type="range" id="pLogoPosYSlider" min="-400" max="400" step="5" value="0">
+      <input type="number" id="pLogoPosYNum" min="-1000" max="1000" value="0">
+    </div>
+  </div>
+
+  <div class="step"><span class="n">10</span>Font</div>
+  <div class="drop" id="fontDrop"><strong>Font ফাইল আপলোড (.ttf/.otf/.woff)</strong>না দিলে default font থাকবে</div>
+  <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2">
+  <div class="count-pill" id="fontPill">Default font ব্যবহার হচ্ছে</div>
+
+  <div class="step"><span class="n">11</span>Design Colors</div>
+  <p style="font-size:11px;color:var(--ink-soft);margin:0 0 10px;">প্রতিটা অংশের রং আলাদাভাবে কন্ট্রোল করুন — সব জায়গায় hex code ও color picker দুটোই আছে।</p>
+  <div class="color-row">
+    <div class="color-item">
+      <label>Panel BG</label>
+      <input type="color" id="colPanel" value="#efe4d2">
+      <input type="text" class="hex-input" id="colPanelHex" value="#efe4d2" maxlength="7" spellcheck="false">
+    </div>
+    <div class="color-item">
+      <label>Badge Circle BG</label>
+      <input type="color" id="colBadge" value="#1b5233">
+      <input type="text" class="hex-input" id="colBadgeHex" value="#1b5233" maxlength="7" spellcheck="false">
+    </div>
+    <div class="color-item">
+      <label>Title Text</label>
+      <input type="color" id="colTitle" value="#1b5233">
+      <input type="text" class="hex-input" id="colTitleHex" value="#1b5233" maxlength="7" spellcheck="false">
+    </div>
+  </div>
+  <div class="color-row" style="margin-top:8px;">
+    <div class="color-item">
+      <label>Tag BG</label>
+      <input type="color" id="colTag" value="#1b5233">
+      <input type="text" class="hex-input" id="colTagHex" value="#1b5233" maxlength="7" spellcheck="false">
+    </div>
+    <div class="color-item">
+      <label>Footer BG</label>
+      <input type="color" id="colFooterBg" value="#1b5233">
+      <input type="text" class="hex-input" id="colFooterBgHex" value="#1b5233" maxlength="7" spellcheck="false">
+    </div>
+    <div class="color-item">
+      <label>Footer Text</label>
+      <input type="color" id="colFooterText" value="#ffffff">
+      <input type="text" class="hex-input" id="colFooterTextHex" value="#ffffff" maxlength="7" spellcheck="false">
+    </div>
+  </div>
+  <div class="color-row" style="margin-top:8px;">
+    <div class="color-item">
+      <label>Icon Label Text</label>
+      <input type="color" id="colIconLabel" value="#0f2540">
+      <input type="text" class="hex-input" id="colIconLabelHex" value="#0f2540" maxlength="7" spellcheck="false">
+    </div>
+  </div>
+
+  <div class="step"><span class="n">12</span>Export</div>
+  <div class="export-btns">
+    <button class="btn btn-primary" id="exportSvg" disabled>SVG ডাউনলোড</button>
+    <button class="btn btn-outline" id="exportPng" disabled>PNG ডাউনলোড</button>
+    <button class="btn btn-outline" id="exportJpg" disabled>JPG ডাউনলোড</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="zoom-bar">
+    <button id="zoomOut" title="Zoom out">−</button>
+    <span class="zlevel" id="zoomLevel" title="Reset & center view">75%</span>
+    <button id="zoomIn" title="Zoom in">+</button>
+  </div>
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="empty-hint">বামপাশ থেকে সব সেটিংস ঠিক করে SVG icon আপলোড করলে এখানে fixed 4700×2400 artboard-এ live preview দেখা যাবে।</div>
+  </div>
+</div>
+</div>
+
+<!-- hidden measuring host for getBBox -->
+<svg id="measureHost" style="position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden"></svg>
+
+<script>
+const ARTBOARD_W = 4700, ARTBOARD_H = 2400;
+
+const templates = [
+  {id:'cream', name:'Cream Sidebar', swatch:'linear-gradient(135deg,#efe4d2 50%,#1b5233 50%)', panel:'#efe4d2', accent:'#1b5233', text:'#0f2540'},
+  {id:'navy',  name:'Navy Sidebar',  swatch:'linear-gradient(135deg,#0f2540 50%,#d97a2e 50%)', panel:'#0f2540', accent:'#d97a2e', text:'#ffffff'},
+  {id:'sage',  name:'Sage Minimal',  swatch:'linear-gradient(135deg,#3f5a4c 50%,#eef2ea 50%)', panel:'#e9efe7', accent:'#c9752f', text:'#2c4136'},
+  {id:'mono',  name:'Mono Clean',    swatch:'linear-gradient(135deg,#1a1a1a 50%,#ffffff 50%)', panel:'#161616', accent:'#ffffff', text:'#ffffff'}
+];
+let currentTpl = templates[0];
+
+const logos = [
+  {id:'ai',     label:'Ai',     color:'#E4772E'},
+  {id:'eps',    label:'Eps',    color:'#E4772E'},
+  {id:'svg',    label:'Svg',    color:'#F2A93C'},
+  {id:'png',    label:'Png',    color:'#1D9E91'},
+  {id:'pdf',    label:'Pdf',    color:'#D6483C'},
+  {id:'psd',    label:'Psd',    color:'#31A8FF'},
+  {id:'vector', label:'Vector', color:'#6C5CE7'}
+];
+let currentLogo = logos[0];
+
+const BASE_DISPLAY_W = 1300; // preview width at 100% zoom
+
+const state = {
+  packSize: 30,
+  rows: 5, cols: 6,
+  textOn: true,
+  logoOn: true,
+  zoom: 0.75,
+  panX: 0, panY: 0,
+  layout: { margin: 20, padding: 8, iconSize: 88, fontSize: 32 },
+  panelSizing: { circle: 100, title: 100, badge: 100, footer: 100, logo: 100, demo: 100 },
+  panelOffset: {
+    title:{x:0,y:0}, circle:{x:0,y:0}, badge:{x:0,y:0}, footer:{x:0,y:0}, logo:{x:0,y:0}, demo:{x:0,y:0}
+  },
+  fontName: null, fontDataUrl: null,
+  colors: {
+    panel:'#efe4d2',        // পুরো কার্ড/প্যানেলের background
+    badge:'#1b5233',        // "30 ICONS" circle + pill এর background
+    title:'#1b5233',        // "MEDICAL EQUIPMENT" title text
+    tag:'#1b5233',          // "ICONS PACK" badge tag এর background
+    footerBg:'#1b5233',     // নিচের bottom bar background
+    footerText:'#ffffff',   // নিচের bottom bar এর text ("EDITABLE STROKE")
+    iconLabel:'#0f2540'     // grid-এর প্রতিটা icon-এর নিচের label text
+  },
+  icons: [] // {id, groupHtml, viewBox, label}
+};
+let uid = 0;
+
+// ---------- Rail toggle (hide/show side panel) ----------
+document.getElementById('railToggle').onclick = ()=>{
+  const app = document.getElementById('appRoot');
+  const btn = document.getElementById('railToggle');
+  const hidden = app.classList.toggle('rail-hidden');
+  btn.classList.toggle('collapsed', hidden);
+  btn.textContent = hidden ? '›' : '‹';
+};
+
+// ---------- Layout & Sizing sliders (margin / padding / icon size / font size) ----------
+function bindSizer(sliderId, numId, valId, suffix, onChange){
+  const s = document.getElementById(sliderId), n = document.getElementById(numId), v = document.getElementById(valId);
+  const apply = (val)=>{ v.textContent = val + suffix; onChange(val); render(); };
+  s.oninput = ()=>{ n.value = s.value; apply(parseFloat(s.value)); };
+  n.oninput = ()=>{ s.value = n.value; apply(parseFloat(n.value) || 0); };
+}
+bindSizer('marginSlider','marginNum','marginVal','px', v=> state.layout.margin = v);
+bindSizer('paddingSlider','paddingNum','paddingVal','%', v=> state.layout.padding = v);
+bindSizer('iconSizeSlider','iconSizeNum','iconSizeVal','%', v=> state.layout.iconSize = v);
+bindSizer('fontSizeSlider','fontSizeNum','fontSizeVal','px', v=> state.layout.fontSize = v);
+bindSizer('pTitleSizeSlider','pTitleSizeNum','pTitleSizeVal','%', v=> state.panelSizing.title = v);
+bindSizer('pCircleSizeSlider','pCircleSizeNum','pCircleSizeVal','%', v=> state.panelSizing.circle = v);
+bindSizer('pBadgeSizeSlider','pBadgeSizeNum','pBadgeSizeVal','%', v=> state.panelSizing.badge = v);
+bindSizer('pFooterSizeSlider','pFooterSizeNum','pFooterSizeVal','%', v=> state.panelSizing.footer = v);
+bindSizer('pLogoSizeSlider','pLogoSizeNum','pLogoSizeVal','%', v=> state.panelSizing.logo = v);
+bindSizer('pTitlePosXSlider','pTitlePosXNum','pTitlePosXVal','px', v=> state.panelOffset.title.x = v);
+bindSizer('pTitlePosYSlider','pTitlePosYNum','pTitlePosYVal','px', v=> state.panelOffset.title.y = v);
+bindSizer('pCirclePosXSlider','pCirclePosXNum','pCirclePosXVal','px', v=> state.panelOffset.circle.x = v);
+bindSizer('pCirclePosYSlider','pCirclePosYNum','pCirclePosYVal','px', v=> state.panelOffset.circle.y = v);
+bindSizer('pBadgePosXSlider','pBadgePosXNum','pBadgePosXVal','px', v=> state.panelOffset.badge.x = v);
+bindSizer('pBadgePosYSlider','pBadgePosYNum','pBadgePosYVal','px', v=> state.panelOffset.badge.y = v);
+bindSizer('pFooterPosXSlider','pFooterPosXNum','pFooterPosXVal','px', v=> state.panelOffset.footer.x = v);
+bindSizer('pFooterPosYSlider','pFooterPosYNum','pFooterPosYVal','px', v=> state.panelOffset.footer.y = v);
+bindSizer('pLogoPosXSlider','pLogoPosXNum','pLogoPosXVal','px', v=> state.panelOffset.logo.x = v);
+bindSizer('pLogoPosYSlider','pLogoPosYNum','pLogoPosYVal','px', v=> state.panelOffset.logo.y = v);
+bindSizer('pDemoSizeSlider','pDemoSizeNum','pDemoSizeVal','%', v=> state.panelSizing.demo = v);
+bindSizer('pDemoPosXSlider','pDemoPosXNum','pDemoPosXVal','px', v=> state.panelOffset.demo.x = v);
+bindSizer('pDemoPosYSlider','pDemoPosYNum','pDemoPosYVal','px', v=> state.panelOffset.demo.y = v);
+
+// ---------- Pack size ----------
+document.querySelectorAll('#packSizeRow .opt-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('#packSizeRow .opt-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.packSize = parseInt(btn.dataset.n);
+    const defaults = {30:[5,6], 50:[5,10], 100:[10,10], 200:[10,20]};
+    const [r,c] = defaults[state.packSize] || [5,6];
+    state.rows = r; state.cols = c;
+    document.getElementById('rowsInput').value = r;
+    document.getElementById('colsInput').value = c;
+    render();
+  };
+});
+document.getElementById('rowsInput').oninput = e=>{ state.rows = Math.max(1, parseInt(e.target.value)||1); render(); };
+document.getElementById('colsInput').oninput = e=>{ state.cols = Math.max(1, parseInt(e.target.value)||1); render(); };
+
+document.getElementById('textToggle').onchange = e=>{ state.textOn = e.target.checked; render(); };
+document.getElementById('logoToggle').onchange = e=>{ state.logoOn = e.target.checked; render(); };
+
+// ---------- Templates ----------
+const tplGrid = document.getElementById('tplGrid');
+templates.forEach(t=>{
+  const card = document.createElement('div');
+  card.className = 'tpl-card' + (t.id===currentTpl.id?' active':'');
+  card.innerHTML = `<div class="swatch" style="background:${t.swatch}"></div><strong>${t.name}</strong>`;
+  card.onclick = ()=>{
+    currentTpl = t;
+    document.querySelectorAll('.tpl-card').forEach(c=>c.classList.remove('active'));
+    card.classList.add('active');
+    // apply template's own color scheme across all granular color slots
+    // (user can still override any single one afterwards from Design Colors)
+    state.colors.panel = t.panel;
+    state.colors.badge = t.accent;
+    state.colors.title = t.accent;
+    state.colors.tag = t.accent;
+    state.colors.footerBg = t.accent;
+    state.colors.footerText = '#ffffff';
+    state.colors.iconLabel = t.text;
+    const map = {
+      colPanel:t.panel, colBadge:t.accent, colTitle:t.accent, colTag:t.accent,
+      colFooterBg:t.accent, colFooterText:'#ffffff', colIconLabel:t.text
+    };
+    Object.keys(map).forEach(id=>{
+      document.getElementById(id).value = map[id];
+      document.getElementById(id+'Hex').value = map[id];
+    });
+    render();
+  };
+  tplGrid.appendChild(card);
+});
+
+['packTitle','badgeTop','footerNote'].forEach(id=> document.getElementById(id).oninput = render);
+
+// ---------- Format Badge (logo) ----------
+const logoGrid = document.getElementById('logoGrid');
+const logoLabelInput = document.getElementById('logoLabel');
+logos.forEach(lg=>{
+  const chip = document.createElement('div');
+  chip.className = 'logo-chip' + (lg.id===currentLogo.id ? ' active' : '');
+  chip.style.borderColor = lg.color;
+  chip.style.color = lg.color;
+  chip.textContent = lg.label;
+  chip.onclick = ()=>{
+    currentLogo = lg;
+    document.querySelectorAll('.logo-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    logoLabelInput.value = lg.label;
+    render();
+  };
+  logoGrid.appendChild(chip);
+});
+logoLabelInput.oninput = e=>{ currentLogo = {...currentLogo, label: e.target.value || currentLogo.label}; render(); };
+
+// ---------- Colors (color picker <-> hex code text, both ways) ----------
+const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+function normalizeHex(h){
+  h = h.trim();
+  if(h[0] !== '#') h = '#' + h;
+  if(/^#([0-9a-f]{3})$/i.test(h)){
+    h = '#' + h.slice(1).split('').map(c=>c+c).join('');
+  }
+  return h;
+}
+function bindColor(pickerId, hexId, key){
+  const picker = document.getElementById(pickerId);
+  const hex = document.getElementById(hexId);
+  picker.oninput = ()=>{
+    state.colors[key] = picker.value;
+    hex.value = picker.value;
+    hex.classList.remove('invalid');
+    render();
+  };
+  hex.oninput = ()=>{
+    const norm = normalizeHex(hex.value);
+    if(HEX_RE.test(norm)){
+      hex.classList.remove('invalid');
+      state.colors[key] = norm;
+      picker.value = norm;
+      render();
+    } else {
+      hex.classList.add('invalid');
+    }
+  };
+  hex.onblur = ()=>{ hex.value = state.colors[key]; hex.classList.remove('invalid'); };
+}
+bindColor('colPanel','colPanelHex','panel');
+bindColor('colBadge','colBadgeHex','badge');
+bindColor('colTitle','colTitleHex','title');
+bindColor('colTag','colTagHex','tag');
+bindColor('colFooterBg','colFooterBgHex','footerBg');
+bindColor('colFooterText','colFooterTextHex','footerText');
+bindColor('colIconLabel','colIconLabelHex','iconLabel');
+
+// ---------- Font ----------
+const fontDrop = document.getElementById('fontDrop');
+const fontInput = document.getElementById('fontInput');
+fontDrop.onclick = ()=> fontInput.click();
+fontInput.onchange = e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = async ()=>{
+    const dataUrl = reader.result;
+    const fontName = 'UserFont_' + uid++;
+    try{
+      const fontFace = new FontFace(fontName, `url(${dataUrl})`);
+      await fontFace.load();
+      document.fonts.add(fontFace);
+      state.fontName = fontName;
+      state.fontDataUrl = dataUrl;
+      document.getElementById('fontPill').textContent = 'Font loaded: ' + f.name;
+      render();
+    }catch(err){
+      document.getElementById('fontPill').textContent = 'Font load ব্যর্থ হয়েছে, default থাকবে';
+    }
+  };
+  reader.readAsDataURL(f);
+};
+
+// ---------- Icon upload & group splitting ----------
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.onclick = ()=> fileInput.click();
+dropZone.ondragover = e=>{e.preventDefault(); dropZone.style.borderColor='var(--teal)';};
+dropZone.ondragleave = ()=> dropZone.style.borderColor='var(--line)';
+dropZone.ondrop = e=>{ e.preventDefault(); dropZone.style.borderColor='var(--line)'; handleFiles(e.dataTransfer.files); };
+fileInput.onchange = e=> handleFiles(e.target.files);
+
+const measureHost = document.getElementById('measureHost');
+
+function handleFiles(fileList){
+  [...fileList].forEach(f=>{
+    if(!f.name.toLowerCase().endsWith('.svg')) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      splitSvgIntoIcons(reader.result, f.name);
+    };
+    reader.readAsText(f);
+  });
+}
+
+// ---------- Color-safety helpers ----------
+// Root cause of "colors change / go navy-only / go white after import": most
+// icon-pack SVGs (Illustrator exports) paint shapes via CSS classes like
+// .cls-1{fill:#0f2540} defined in a <style> block, using the SAME generic
+// class names (cls-1, cls-2, st0...) across every icon / every uploaded file.
+// Once icons are merged into one combined sheet, those class names collide
+// and the LAST <style> block in the document silently overrides fill colors
+// for every icon sharing that name — which is exactly the random-looking
+// navy-only / teal-only / white behaviour. Fix: bake every class-based
+// fill/stroke into an explicit attribute (using the browser's own resolved
+// computed style) and give every id (gradients/clipPaths/masks) a unique
+// per-file prefix, so each icon carries its own real color and can never be
+// touched by another icon's styling again.
+function namespaceIds(rootEl, prefix){
+  const idMap = {};
+  rootEl.querySelectorAll('[id]').forEach(el=>{
+    const oldId = el.getAttribute('id');
+    const newId = prefix + '-' + oldId;
+    idMap[oldId] = newId;
+    el.setAttribute('id', newId);
+  });
+  if(Object.keys(idMap).length === 0) return;
+  const urlAttrs = ['fill','stroke','clip-path','mask','filter'];
+  rootEl.querySelectorAll('*').forEach(el=>{
+    urlAttrs.forEach(attr=>{
+      const val = el.getAttribute(attr);
+      if(val && val.indexOf('url(#') === 0){
+        const oldId = val.slice(5, -1);
+        if(idMap[oldId]) el.setAttribute(attr, `url(#${idMap[oldId]})`);
+      }
+    });
+    ['href','xlink:href'].forEach(attr=>{
+      const val = el.getAttribute(attr);
+      if(val && val.charAt(0) === '#' && idMap[val.slice(1)]){
+        el.setAttribute(attr, '#'+idMap[val.slice(1)]);
+      }
+    });
+    const styleVal = el.getAttribute('style');
+    if(styleVal && styleVal.indexOf('url(#') !== -1){
+      const newStyle = styleVal.replace(/url\(#([^)]+)\)/g, (m,id)=> idMap[id] ? `url(#${idMap[id]})` : m);
+      el.setAttribute('style', newStyle);
+    }
+  });
+}
+function inlineClassColors(rootEl){
+  const PAINT_ATTRS = ['fill','stroke','fill-opacity','stroke-opacity','stroke-width'];
+  rootEl.querySelectorAll('[class]').forEach(el=>{
+    let cs;
+    try{ cs = getComputedStyle(el); }catch(e){ return; }
+    PAINT_ATTRS.forEach(prop=>{
+      const val = cs.getPropertyValue(prop);
+      if(!val) return;
+      if((prop==='fill-opacity'||prop==='stroke-opacity') && val==='1') return;
+      if(prop==='stroke' && val==='none' && !el.hasAttribute('stroke')) return;
+      el.setAttribute(prop, val);
+    });
+    el.removeAttribute('class');
+  });
+}
+
+function splitSvgIntoIcons(svgText, fileName){
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, 'image/svg+xml');
+  const root = doc.documentElement;
+  if(root.nodeName === 'parsererror'){ return; }
+
+  // attach a clone to measureHost to compute bboxes
+  const clone = root.cloneNode(true);
+  measureHost.appendChild(clone);
+
+  // give this file's ids a unique prefix so its gradients/clipPaths/masks can
+  // never collide with ids from another uploaded file or another icon
+  namespaceIds(clone, 'f' + (uid++));
+  // bake every CSS-class-driven fill/stroke into a real attribute, using the
+  // browser's resolved computed style, so class-name collisions between
+  // icons/files can no longer change any icon's color after export
+  inlineClassColors(clone);
+
+  // preserve any <defs>/<style> from the source file so class-based fills,
+  // gradients, etc. still resolve correctly after a group is split out
+  const defsAndStyle = Array.from(clone.querySelectorAll(':scope > defs, :scope > style'))
+    .map(e=>e.outerHTML).join('');
+
+  let groups = Array.from(clone.querySelectorAll(':scope > g'));
+  if(groups.length === 0){
+    // no top-level groups -> treat whole svg content as ONE icon
+    groups = [clone];
+  }
+
+  groups.forEach((g, idx)=>{
+    let bbox;
+    try{ bbox = g.getBBox(); }catch(e){ bbox = {x:0,y:0,width:100,height:100}; }
+    if(bbox.width===0 || bbox.height===0){ bbox = {x:0,y:0,width:100,height:100}; }
+    const pad = Math.max(bbox.width, bbox.height) * 0.06;
+    const vb = `${bbox.x-pad} ${bbox.y-pad} ${bbox.width+pad*2} ${bbox.height+pad*2}`;
+    const inner = (g === clone) ? clone.innerHTML : g.outerHTML;
+    const label = groups.length>1 ? (fileName.replace(/\.svg$/i,'') + ' ' + (idx+1)) : fileName.replace(/\.svg$/i,'').replace(/[-_]/g,' ');
+    state.icons.push({
+      id: uid++,
+      inner,
+      defs: defsAndStyle,
+      viewBox: vb,
+      label: label.replace(/\b\w/g,c=>c.toUpperCase())
+    });
+  });
+
+  measureHost.removeChild(clone);
+  renderIconList();
+  render();
+}
+
+// ---------- Icon names import (.txt — one name per line, applied in upload order) ----------
+const namesDropZone = document.getElementById('namesDropZone');
+const namesFileInput = document.getElementById('namesFileInput');
+const namesPill = document.getElementById('namesPill');
+namesDropZone.onclick = ()=> namesFileInput.click();
+namesDropZone.ondragover = e=>{e.preventDefault(); namesDropZone.style.borderColor='var(--teal)';};
+namesDropZone.ondragleave = ()=> namesDropZone.style.borderColor='var(--line)';
+namesDropZone.ondrop = e=>{
+  e.preventDefault(); namesDropZone.style.borderColor='var(--line)';
+  const f = e.dataTransfer.files[0];
+  if(f) applyNamesFile(f);
+};
+namesFileInput.onchange = e=>{
+  const f = e.target.files[0];
+  if(f) applyNamesFile(f);
+  namesFileInput.value = '';
+};
+function applyNamesFile(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const lines = String(reader.result)
+      .split(/\r\n|\r|\n/)
+      .map(l=>l.trim())
+      .filter(l=>l.length>0);
+
+    namesPill.style.display = 'inline-block';
+
+    if(lines.length === 0){
+      namesPill.className = 'warn-pill';
+      namesPill.textContent = 'txt ফাইলে কোনো নাম পাওয়া যায়নি';
+      return;
+    }
+    if(state.icons.length === 0){
+      namesPill.className = 'warn-pill';
+      namesPill.textContent = 'আগে SVG icon upload করুন, তারপর নামের তালিকা import করুন';
+      return;
+    }
+
+    const n = Math.min(lines.length, state.icons.length);
+    for(let i=0; i<n; i++){ state.icons[i].label = lines[i]; }
+
+    if(lines.length === state.icons.length){
+      namesPill.className = 'count-pill';
+      namesPill.textContent = n + 'টা নাম সবগুলো icon-এ বসে গেছে ✓';
+    } else if(lines.length > state.icons.length){
+      namesPill.className = 'warn-pill';
+      namesPill.textContent = lines.length + 'টা নাম পাওয়া গেছে কিন্তু icon আছে ' + state.icons.length + 'টা — প্রথম ' + n + 'টা বসেছে, বাকি নাম বাদ গেছে';
+    } else {
+      namesPill.className = 'warn-pill';
+      namesPill.textContent = lines.length + 'টা নাম পাওয়া গেছে কিন্তু icon আছে ' + state.icons.length + 'টা — প্রথম ' + n + 'টা icon-এর নাম বসেছে, বাকিগুলোর আগের নাম রয়ে গেছে';
+    }
+
+    renderIconList();
+    render();
+  };
+  reader.readAsText(file);
+}
+
+const iconListEl = document.getElementById('iconList');
+const countPill = document.getElementById('countPill');
+function renderIconList(){
+  iconListEl.innerHTML = '';
+  state.icons.forEach(ic=>{
+    const row = document.createElement('div');
+    row.className = 'icon-row';
+    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${ic.viewBox}">${ic.defs||''}${ic.inner}</svg>`;
+    const b64 = btoa(unescape(encodeURIComponent(svgStr)));
+    row.innerHTML = `<div class="thumb"><img src="data:image/svg+xml;base64,${b64}"></div><span class="lbl">${ic.label}</span><button class="icon-del" data-id="${ic.id}" title="Delete icon">×</button>`;
+    iconListEl.appendChild(row);
+  });
+  iconListEl.querySelectorAll('.icon-del').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = parseInt(btn.dataset.id);
+      state.icons = state.icons.filter(x=>x.id!==id);
+      renderIconList();
+      render();
+    };
+  });
+  countPill.textContent = state.icons.length + ' icon পাওয়া গেছে';
+  const has = state.icons.length>0;
+  document.getElementById('exportSvg').disabled = !has;
+  document.getElementById('exportPng').disabled = !has;
+  document.getElementById('exportJpg').disabled = !has;
+}
+
+function escapeXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Rect path with only the RIGHT side corners rounded (top-right + bottom-right);
+// left corners stay perfectly square. Used for the "ICONS" pill and "ICONS PACK" badge tag.
+function rightRoundedRectPath(x, y, w, h, r){
+  r = Math.min(r, h/2, w/2);
+  return `M${x},${y} H${x+w-r} A${r},${r} 0 0 1 ${x+w},${y+r} V${y+h-r} A${r},${r} 0 0 1 ${x+w-r},${y+h} H${x} Z`;
+}
+
+// ---------- Compose layout ----------
+function computeLayout(){
+  const isSidebar = state.packSize === 30; // 30 => cream sidebar cover style, 50/100/200 => top banner (more columns)
+  const sidebarW = isSidebar ? 1220 : 0; // matches the exact card width of the fixed sidebar template
+  const topBannerH = isSidebar ? 0 : 300;
+
+  const margin = state.layout.margin;
+  const gridX = sidebarW + margin;
+  const gridY = topBannerH + margin;
+  const gridW = Math.max(10, ARTBOARD_W - sidebarW - margin*2);
+  const gridH = Math.max(10, ARTBOARD_H - topBannerH - margin*2);
+
+  const cols = state.cols, rows = state.rows;
+  const cellW = gridW / cols;
+  const cellH = gridH / rows;
+
+  const padX = cellW * (state.layout.padding/100);
+  const padY = cellH * (state.layout.padding/100);
+
+  const labelH = state.textOn ? Math.min(Math.max(cellH*0.15, 44), 130) : 0;
+  const iconAreaH = cellH - labelH;
+  const iconAreaW = cellW;
+  const fill = state.layout.iconSize/100;
+  const iconBox = Math.max(10, Math.min(iconAreaW - padX*2, iconAreaH - padY*2) * fill);
+
+  return {isSidebar, sidebarW, topBannerH, gridX, gridY, gridW, gridH, cols, rows, cellW, cellH, labelH, iconAreaH, iconBox};
+}
+
+function buildComposedSVG(forExport){
+  const L = computeLayout();
+  const t = currentTpl;
+  const c = state.colors;
+  const fontFamily = state.fontName ? `'${state.fontName}', 'Segoe UI', sans-serif` : `'Segoe UI', sans-serif`;
+  const title = document.getElementById('packTitle').value || 'ICON PACK';
+  const badgeTop = document.getElementById('badgeTop').value || 'ICONS PACK';
+  const footerNote = document.getElementById('footerNote').value || 'EDITABLE STROKE';
+
+  let fontDefs = '';
+  if(forExport && state.fontDataUrl && state.fontName){
+    fontDefs = `<defs><style>@font-face{font-family:'${state.fontName}';src:url(${state.fontDataUrl});}</style></defs>`;
+  }
+
+  let iconGroups = '';
+  state.icons.forEach((ic, i)=>{
+    if(i >= L.cols*L.rows) return; // cap to grid capacity
+    const col = i % L.cols, row = Math.floor(i / L.cols);
+    const cx = L.gridX + col*L.cellW + L.cellW/2;
+    const iconCenterY = L.gridY + row*L.cellH + L.iconAreaH/2;
+    const half = L.iconBox/2;
+
+    iconGroups += `<g transform="translate(${cx-half},${iconCenterY-half})">
+        <svg width="${L.iconBox}" height="${L.iconBox}" viewBox="${ic.viewBox}" preserveAspectRatio="xMidYMid meet">${ic.defs||''}${ic.inner}</svg>
+      </g>`;
+
+    if(state.textOn){
+      const fontSize = state.layout.fontSize;
+      const labelTopY = L.gridY + row*L.cellH + L.iconAreaH;
+      const labelY = labelTopY + fontSize*0.95; // hug just under the icon, not centered in the whole strip
+      if(forExport){
+        iconGroups += `<text x="${cx}" y="${labelY}" text-anchor="middle" font-family="${fontFamily}" font-weight="700" font-size="${fontSize}" fill="${c.iconLabel}">${escapeXml(ic.label.toUpperCase())}</text>`;
+      } else {
+        const boxW = L.cellW*0.94;
+        iconGroups += `<foreignObject x="${cx-boxW/2}" y="${labelTopY}" width="${boxW}" height="${L.labelH}">
+          <div xmlns="http://www.w3.org/1999/xhtml" class="lbl-edit" contenteditable="true" data-icon-id="${ic.id}"
+            style="font-family:${fontFamily};font-weight:700;font-size:${fontSize}px;color:${c.iconLabel};width:100%;height:100%;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;">${escapeXml(ic.label.toUpperCase())}</div>
+        </foreignObject>`;
+      }
+    }
+  });
+
+  const PM = computePanelMetrics(L, title, badgeTop, footerNote);
+  let panelContent = '';
+  if(L.isSidebar){
+    // demo/first uploaded icon, centered as a square in the same slot the
+    // reference design uses for its example illustration
+    let demoIconSvg = '';
+    if(state.icons.length){
+      const ic0 = state.icons[0];
+      const baseSide = 460.65;
+      const side = baseSide * (state.panelSizing.demo/100);
+      const baseCx = 423.84 + baseSide/2, baseCy = 644.72 + 827.47/2; // original centered slot
+      const ix = baseCx - side/2 + state.panelOffset.demo.x;
+      const iy = baseCy - side/2 + state.panelOffset.demo.y;
+      demoIconSvg = `<g transform="translate(${ix},${iy})">
+          <svg width="${side}" height="${side}" viewBox="${ic0.viewBox}" preserveAspectRatio="xMidYMid meet">${ic0.defs||''}${ic0.inner}</svg>
+        </g>`;
+    }
+    const logoBlockSidebar = state.logoOn ? `
+      <rect x="${PM.logoBoxX}" y="${PM.logoBoxY}" width="${PM.logoBoxW}" height="${PM.logoBoxH}" rx="14" fill="none" stroke="${currentLogo.color}" stroke-width="6"/>
+      <text x="${PM.logoTextX}" y="${PM.logoTextY}" text-anchor="middle" font-family="${fontFamily}" font-weight="800" font-size="${PM.logoFont}" fill="${currentLogo.color}">${escapeXml(currentLogo.label)}</text>` : '';
+    panelContent = `
+      <path d="M1167.66,0H0v2374.73c12.44-184.06,165.68-329.5,352.89-329.5h864.91v311.89c.35-2.38.53-4.82.53-7.3V50.68c0-27.99-22.69-50.68-50.68-50.68Z" fill="${c.panel}"/>
+      <path d="M354.89,2045.23c-187.21,0-340.44,145.44-352.89,329.5-.54,8-.82,16.07-.82,24.21v1.06h1178.19c22.33,0,40.43-18.1,40.43-40.43v-314.34H354.89Z" fill="${c.footerBg}"/>
+      <circle cx="${PM.cx}" cy="${PM.cy}" r="${PM.r}" fill="${c.badge}"/>
+      <text x="${PM.cx}" y="${PM.countY}" text-anchor="middle" font-family="${fontFamily}" font-weight="800" font-size="${PM.countFont}" fill="#ffffff">${state.icons.length || state.packSize}</text>
+      <path d="${rightRoundedRectPath(PM.pillX, PM.pillY, PM.pillW, PM.pillH, PM.pillH/2)}" fill="${c.badge}"/>
+      <text x="${PM.iconsLabelX}" y="${PM.iconsLabelY}" font-family="${fontFamily}" font-weight="800" font-size="${PM.iconsLabelFont}" fill="#ffffff">ICONS</text>
+      <text x="${PM.titleX}" y="${PM.titleFirstY}" font-family="${fontFamily}" font-weight="800" font-size="${PM.titleFont}" fill="${c.title}">${tspansFromLines(PM.lines, PM.titleX, PM.titleFont, PM.lineGap)}</text>
+      <path d="${rightRoundedRectPath(PM.badgeTagX, PM.badgeTagY, PM.badgeTagW, PM.badgeTagH, PM.badgeTagH/2)}" fill="${c.tag}"/>
+      <text x="${PM.badgeTagX + PM.badgeTagPadX}" y="${PM.badgeTagY + PM.badgeTagH/2 + PM.badgeTagFont*0.3125}" font-family="${fontFamily}" font-weight="700" font-size="${PM.badgeTagFont}" fill="#ffffff">${escapeXml(badgeTop)}</text>
+      <text x="${PM.footerTextX}" y="${PM.footerFirstY}" font-family="${fontFamily}" font-weight="700" font-size="${PM.footerFont}" fill="${c.footerText}">${tspansFromLines(PM.footerLines, PM.footerTextX, PM.footerFont, PM.footerLineGap)}</text>
+      ${demoIconSvg}
+      <rect x="865.88" y="2090.27" width="10.68" height="266.8" fill="${c.footerText}" opacity="0.45"/>
+      ${logoBlockSidebar}`;
+  } else {
+    const logoBlockBanner = state.logoOn ? `
+      <rect x="${PM.logoBoxX}" y="${PM.logoBoxY}" width="${PM.logoBoxW}" height="${PM.logoBoxH}" rx="12" fill="none" stroke="${currentLogo.color}" stroke-width="5"/>
+      <text x="${PM.logoTextX}" y="${PM.logoTextY}" text-anchor="middle" font-family="${fontFamily}" font-weight="800" font-size="${PM.logoFont}" fill="${currentLogo.color}">${escapeXml(currentLogo.label)}</text>` : '';
+    panelContent = `
+      <rect x="0" y="0" width="${ARTBOARD_W}" height="${L.topBannerH}" fill="${c.panel}"/>
+      <circle cx="${PM.cx}" cy="${PM.cy}" r="${PM.r}" fill="${c.badge}"/>
+      <text x="${PM.cx}" y="${PM.countY}" text-anchor="middle" font-family="${fontFamily}" font-weight="800" font-size="${PM.countFont}" fill="#ffffff">${state.icons.length || state.packSize}</text>
+      <text x="${PM.titleX}" y="${PM.titleY}" font-family="${fontFamily}" font-weight="800" font-size="${PM.titleFont}" fill="${c.title}">${escapeXml(title)}</text>
+      <text x="${PM.badgeX}" y="${PM.badgeY}" font-family="${fontFamily}" font-weight="600" font-size="${PM.badgeFont}" fill="${c.tag}">${escapeXml(badgeTop)}</text>
+      <text x="${PM.footerX}" y="${PM.footerY}" text-anchor="end" font-family="${fontFamily}" font-weight="700" font-size="${PM.footerFont}" fill="${c.footerText}">${escapeXml(footerNote)}</text>
+      <line x1="${PM.lineX}" y1="${PM.lineY1}" x2="${PM.lineX}" y2="${PM.lineY2}" stroke="${c.footerText}" stroke-width="3" opacity="0.35"/>
+      ${logoBlockBanner}`;
+  }
+
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${ARTBOARD_W}" height="${ARTBOARD_H}" viewBox="0 0 ${ARTBOARD_W} ${ARTBOARD_H}">
+      ${fontDefs}
+      <rect x="0" y="0" width="${ARTBOARD_W}" height="${ARTBOARD_H}" fill="#ffffff"/>
+      ${panelContent}
+      ${iconGroups}
+    </svg>`
+  };
+}
+
+function wrapLinesArr(text, maxChars){
+  const words = String(text).split(' ');
+  const lines = []; let cur = '';
+  words.forEach(w=>{
+    if((cur+' '+w).trim().length > maxChars){ lines.push(cur.trim()); cur = w; } else cur = (cur+' '+w).trim();
+  });
+  if(cur) lines.push(cur);
+  return lines;
+}
+function tspansFromLines(lines, x, fontSize, lineGap){
+  return lines.map((l,i)=> `<tspan x="${x}" dy="${i===0?0:fontSize+lineGap}">${escapeXml(l)}</tspan>`).join('');
+}
+
+// Computes every panel-text coordinate/size from the panelSizing % sliders.
+// At 100% every value below reproduces the original fixed-pixel template exactly;
+// moving a slider grows/shrinks that element AND nudges everything around it
+// so nothing overlaps and the whole panel keeps looking "nice".
+function computePanelMetrics(L, title, badgeTop, footerNote){
+  const ps = state.panelSizing;
+  const po = state.panelOffset;
+  const m = {};
+  if(L.isSidebar){
+    // circle + "ICONS" pill: fixed geometry (matches the reference design exactly);
+    // only the text sizes inside them respond to the Circle Size slider
+    const r = 238.31, cx = r + 21.03 + po.circle.x, cy = r + 48.31 + po.circle.y;
+    m.r = r; m.cx = cx; m.cy = cy;
+    const digits = String(state.icons.length || state.packSize).length;
+    m.countFont = (digits <= 2 ? 260 : 190) * ps.circle/100;
+    m.countY = cy + m.countFont*0.32;
+
+    m.pillX = 483.62; m.pillY = 205.91; m.pillW = 398.9; m.pillH = 161.42;
+    m.iconsLabelFont = 100*ps.circle/100;
+    m.iconsLabelX = 539.38 + po.circle.x; m.iconsLabelY = 320.92 + po.circle.y;
+
+    const titleFont = 126.39*ps.title/100, lineGap = 25;
+    const lines = wrapLinesArr(title, 14);
+    m.titleFont = titleFont; m.lineGap = lineGap; m.lines = lines;
+    m.titleFirstY = 1645.06 + po.title.y;
+    m.titleX = 349.33 + po.title.x;
+
+    const badgeTagFont = 74*ps.badge/100;
+    const badgeTagH = 151.38*ps.badge/100;
+    let badgeTagW = 743.24*ps.badge/100;
+    const estBadgeTextW = badgeTop.length * badgeTagFont * 0.6;
+    if(estBadgeTextW + 140 > badgeTagW) badgeTagW = estBadgeTextW + 140; // grow pill for longer badge text
+    m.badgeTagFont = badgeTagFont; m.badgeTagW = badgeTagW; m.badgeTagH = badgeTagH;
+    m.badgeTagPadX = 139.42*ps.badge/100;
+    m.badgeTagX = 263.69 + po.badge.x; m.badgeTagY = 1852.25 + po.badge.y;
+
+    // the cream/green background card itself is fixed art (drawn as exact
+    // paths below); these two constants describe that fixed footer bar so
+    // the footer text + logo box can be centered inside it
+    const footerBarY = 2045.23, footerBarH = 354.77;
+    const footerFont = 101.83*ps.footer/100, footerLineGap = 20;
+    m.footerFont = footerFont; m.footerLineGap = footerLineGap;
+    m.footerLines = wrapLinesArr(footerNote, 10);
+    m.footerTextX = 290.92 + po.footer.x;
+    m.footerFirstY = 2204.88 + po.footer.y;
+
+    const logoFont = 90*ps.logo/100;
+    let logoBoxW = 220*ps.logo/100;
+    const logoBoxH = 220*ps.logo/100;
+    const label = (currentLogo && currentLogo.label) || '';
+    const estTextW = label.length * logoFont * 0.62;
+    if(estTextW + 40 > logoBoxW) logoBoxW = estTextW + 40; // grow box for longer badge text
+    const logoBoxX = L.sidebarW - 60 - logoBoxW + po.logo.x;
+    const logoBoxY = footerBarY + (footerBarH - logoBoxH)/2 + po.logo.y;
+    m.logoFont = logoFont; m.logoBoxW = logoBoxW; m.logoBoxH = logoBoxH;
+    m.logoBoxX = logoBoxX; m.logoBoxY = logoBoxY;
+    m.logoTextX = logoBoxX + logoBoxW/2;
+    m.logoTextY = logoBoxY + logoBoxH/2 + logoFont*0.3333;
+  } else {
+    const cy = L.topBannerH/2 + po.circle.y;
+    const r = 90*ps.circle/100;
+    const cx = r + 60 + po.circle.x;
+    m.r = r; m.cx = cx; m.cy = cy;
+    m.countFont = 60*ps.circle/100;
+    m.countY = cy + m.countFont*0.3;
+
+    const titleFont = 46*ps.title/100;
+    const badgeFont = 26*ps.badge/100;
+    m.titleFont = titleFont; m.titleX = cx + r + 50 + po.title.x;
+    m.titleY = cy - 10 - (titleFont-46)*0.3 + po.title.y;
+    m.badgeFont = badgeFont; m.badgeX = cx + r + 50 + po.badge.x;
+    m.badgeY = cy + 40 + (badgeFont-26)*0.3 + (titleFont-46)*0.3 + po.badge.y;
+
+    const footerFont = 26*ps.footer/100;
+    m.footerFont = footerFont; m.footerX = ARTBOARD_W-260 + po.footer.x;
+    m.footerY = cy + footerFont*0.3846 + po.footer.y;
+
+    const logoFont = 38*ps.logo/100;
+    let logoBoxW = 130*ps.logo/100;
+    const logoBoxH = 92*ps.logo/100;
+    const label = (currentLogo && currentLogo.label) || '';
+    const estTextW = label.length * logoFont * 0.62;
+    if(estTextW + 20 > logoBoxW) logoBoxW = estTextW + 20; // grow box for longer badge text (up to 10 chars)
+    const logoBoxX = ARTBOARD_W - 60 - logoBoxW + po.logo.x;
+    const logoBoxY = cy - logoBoxH/2 + po.logo.y;
+    m.logoFont = logoFont; m.logoBoxW = logoBoxW; m.logoBoxH = logoBoxH;
+    m.logoBoxX = logoBoxX; m.logoBoxY = logoBoxY;
+    m.logoTextX = logoBoxX + logoBoxW/2;
+    m.logoTextY = logoBoxY + logoBoxH/2 + logoFont*0.3421;
+    m.lineX = logoBoxX - 30;
+    m.lineY1 = logoBoxY - 12*(ps.logo/100);
+    m.lineY2 = logoBoxY + logoBoxH + 12*(ps.logo/100);
+  }
+  return m;
+}
+
+// ---------- Render ----------
+let prevIconCount = 0;
+function render(){
+  const wrap = document.getElementById('canvasWrap');
+  if(state.icons.length===0){
+    wrap.classList.remove('has-content');
+    wrap.style.transform = 'none';
+    wrap.innerHTML = '<div class="empty-hint">বামপাশ থেকে সব সেটিংস ঠিক করে SVG icon আপলোড করলে এখানে fixed 4700×2400 artboard-এ live preview দেখা যাবে।</div>';
+    prevIconCount = 0;
+    return;
+  }
+  const wasEmpty = prevIconCount === 0;
+  const composed = buildComposedSVG(false);
+  wrap.innerHTML = composed.svg;
+  wrap.classList.add('has-content');
+  const svgEl = wrap.querySelector('svg');
+  // fixed intrinsic size — zoom is applied purely via CSS transform (scale),
+  // not by resizing the element, so zoom can be anchored anywhere (cursor, center, etc.)
+  svgEl.style.width = BASE_DISPLAY_W + 'px';
+  svgEl.style.height = 'auto';
+  svgEl.style.display = 'block';
+  if(wasEmpty){
+    centerCanvas();
+  } else {
+    applyTransform();
+  }
+  prevIconCount = state.icons.length;
+  // sync edited labels back into state on blur
+  wrap.querySelectorAll('.lbl-edit').forEach(div=>{
+    div.oninput = ()=>{
+      const id = parseInt(div.dataset.iconId);
+      const ic = state.icons.find(x=>x.id===id);
+      if(ic) ic.label = div.textContent;
+    };
+  });
+}
+
+// ---------- Export ----------
+function fileNameBase(){
+  return (document.getElementById('packTitle').value || 'icon-pack').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+function downloadBlob(blob, name){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+document.getElementById('exportSvg').onclick = ()=>{
+  const composed = buildComposedSVG(true);
+  downloadBlob(new Blob([composed.svg], {type:'image/svg+xml'}), fileNameBase()+'.svg');
+};
+document.getElementById('exportPng').onclick = ()=> exportRaster('png');
+document.getElementById('exportJpg').onclick = ()=> exportRaster('jpg');
+function setExportBusy(busy, msg){
+  const pill = document.getElementById('countPill');
+  ['exportSvg','exportPng','exportJpg'].forEach(id=>{
+    document.getElementById(id).disabled = busy || state.icons.length===0;
+  });
+  if(msg){
+    let warn = document.getElementById('exportWarnPill');
+    if(!warn){
+      warn = document.createElement('div');
+      warn.id = 'exportWarnPill';
+      warn.className = 'warn-pill';
+      document.querySelector('.export-btns').appendChild(warn);
+    }
+    warn.textContent = msg;
+    warn.style.display = 'inline-block';
+  } else {
+    const warn = document.getElementById('exportWarnPill');
+    if(warn) warn.style.display = 'none';
+  }
+}
+function exportRaster(type){
+  setExportBusy(true, null);
+  const composed = buildComposedSVG(true);
+  const img = new Image();
+  // width/height on the Image itself (in addition to the SVG's own
+  // width/height attrs) — some browsers refuse to rasterize an SVG image
+  // via canvas if they can't resolve an intrinsic size up front.
+  img.width = ARTBOARD_W; img.height = ARTBOARD_H;
+  const blob = new Blob([composed.svg], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const cleanup = ()=>{ URL.revokeObjectURL(url); setExportBusy(false, null); };
+  img.onload = ()=>{
+    try{
+      const canvas = document.createElement('canvas');
+      canvas.width = ARTBOARD_W; canvas.height = ARTBOARD_H;
+      const ctx = canvas.getContext('2d');
+      if(type==='jpg'){ ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(b=>{
+        cleanup();
+        if(!b){
+          setExportBusy(false, 'Export ব্যর্থ হয়েছে — canvas থেকে ফাইল বানানো যায়নি, ব্রাউজার/ডিভাইস পরিবর্তন করে আবার চেষ্টা করুন।');
+          return;
+        }
+        downloadBlob(b, fileNameBase()+'.'+type);
+      }, type==='jpg'?'image/jpeg':'image/png', 0.95);
+    }catch(err){
+      cleanup();
+      setExportBusy(false, 'Export ব্যর্থ হয়েছে: ' + (err && err.message ? err.message : 'canvas এ ছবি আঁকা যায়নি (সম্ভবত tainted canvas)।'));
+    }
+  };
+  img.onerror = ()=>{
+    cleanup();
+    setExportBusy(false, 'SVG থেকে ছবি লোড করা যায়নি — কোনো icon-এর ভেতরের XML invalid হতে পারে। SVG ডাউনলোড করে ফাইলটা একটা SVG viewer-এ খুলে চেক করুন।');
+  };
+  img.src = url;
+}
+
+// ---------- Zoom & Pan (TradingView-style: CSS transform, cursor-anchored zoom, free-direction pan) ----------
+const zoomLevelEl = document.getElementById('zoomLevel');
+const stageEl = document.querySelector('.stage');
+const canvasWrapEl = document.getElementById('canvasWrap');
+const ZOOM_MIN = 0.25, ZOOM_MAX = 3, DEFAULT_ZOOM = 0.75;
+
+function applyTransform(){
+  canvasWrapEl.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  zoomLevelEl.textContent = Math.round(state.zoom*100) + '%';
+}
+
+// Center the artboard inside whatever space the stage currently has —
+// used on first render and whenever the view is reset.
+function centerCanvas(){
+  const rect = stageEl.getBoundingClientRect();
+  const contentW = BASE_DISPLAY_W;
+  const contentH = BASE_DISPLAY_W * (ARTBOARD_H / ARTBOARD_W);
+  state.panX = (rect.width  - contentW  * state.zoom) / 2;
+  state.panY = (rect.height - contentH * state.zoom) / 2;
+  applyTransform();
+}
+
+// Zoom while keeping a specific screen point (cx, cy — relative to the stage)
+// fixed in place. If no point is given, zoom around the stage's own center.
+function zoomAt(cx, cy, newZoom){
+  if(state.icons.length === 0) return;
+  newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +newZoom.toFixed(3)));
+  if(newZoom === state.zoom) return;
+  if(cx === undefined || cy === undefined){
+    const rect = stageEl.getBoundingClientRect();
+    cx = rect.width / 2; cy = rect.height / 2;
+  }
+  const oldZoom = state.zoom;
+  const worldX = (cx - state.panX) / oldZoom;
+  const worldY = (cy - state.panY) / oldZoom;
+  state.zoom = newZoom;
+  state.panX = cx - worldX * state.zoom;
+  state.panY = cy - worldY * state.zoom;
+  applyTransform();
+}
+
+function resetView(){
+  if(state.icons.length === 0) return;
+  state.zoom = DEFAULT_ZOOM;
+  centerCanvas();
+}
+
+document.getElementById('zoomIn').onclick  = ()=> zoomAt(undefined, undefined, state.zoom + 0.1);
+document.getElementById('zoomOut').onclick = ()=> zoomAt(undefined, undefined, state.zoom - 0.1);
+zoomLevelEl.onclick = ()=> resetView();
+
+// Mouse wheel = zoom, anchored at the cursor position (no Ctrl needed — like
+// TradingView / Figma). If the cursor happens to be outside the stage
+// (shouldn't normally fire, but just in case), fall back to center anchor.
+stageEl.addEventListener('wheel', e=>{
+  if(state.icons.length === 0) return;
+  e.preventDefault();
+  const rect = stageEl.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+  zoomAt(cx, cy, state.zoom * factor);
+}, {passive:false});
+
+// Re-center on window resize so the artboard never drifts out of view.
+window.addEventListener('resize', ()=>{
+  if(state.icons.length > 0) applyTransform();
+});
+
+renderIconList();
+
+// ---------- Fix: remove stray blinking edit-cursor when clicking anywhere else ----------
+// Contenteditable label boxes should only show a cursor while actively being edited.
+// Clicking anywhere outside a .lbl-edit box (canvas background, icons, rail, buttons, etc.)
+// blurs whichever label was focused so the caret disappears immediately.
+document.addEventListener('mousedown', (e)=>{
+  const active = document.activeElement;
+  if(active && active.classList && active.classList.contains('lbl-edit') && !e.target.closest('.lbl-edit')){
+    active.blur();
+  }
+});
+
+// ---------- Pan: hold Space + drag, OR middle-mouse-drag, to pan the artboard
+// freely in any direction (up/down/left/right) — pure CSS-transform based,
+// no native scrollbars involved, so nothing "snaps back" or jumps. ----------
+(function(){
+  let spaceHeld = false, isPanning = false;
+  let startX = 0, startY = 0, startPanX = 0, startPanY = 0;
+
+  function isTypingTarget(el){
+    if(!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+  }
+
+  function beginPan(e){
+    isPanning = true;
+    startX = e.clientX; startY = e.clientY;
+    startPanX = state.panX; startPanY = state.panY;
+    stageEl.classList.add('space-grabbing');
+    e.preventDefault();
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.code !== 'Space' || spaceHeld) return;
+    if(isTypingTarget(document.activeElement)) return; // don't hijack space while typing
+    spaceHeld = true;
+    stageEl.classList.add('space-grab');
+    e.preventDefault(); // stop page from scrolling on space
+  });
+
+  document.addEventListener('keyup', (e)=>{
+    if(e.code !== 'Space') return;
+    spaceHeld = false;
+    if(!isPanning) stageEl.classList.remove('space-grab','space-grabbing');
+  });
+
+  stageEl.addEventListener('mousedown', (e)=>{
+    // Space+drag (any mouse button) OR plain middle-mouse-button drag — both pan.
+    if(!spaceHeld && e.button !== 1) return;
+    beginPan(e);
+  });
+
+  window.addEventListener('mousemove', (e)=>{
+    if(!isPanning) return;
+    state.panX = startPanX + (e.clientX - startX);
+    state.panY = startPanY + (e.clientY - startY);
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', ()=>{
+    if(!isPanning) return;
+    isPanning = false;
+    stageEl.classList.remove('space-grabbing');
+    if(spaceHeld) stageEl.classList.add('space-grab');
+    else stageEl.classList.remove('space-grab');
+  });
+
+  // if the window loses focus (e.g. alt-tab) while space is "held", reset cleanly
+  window.addEventListener('blur', ()=>{
+    spaceHeld = false; isPanning = false;
+    stageEl.classList.remove('space-grab','space-grabbing');
+  });
+})();
+</script>
+</body>
+</html>
